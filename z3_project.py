@@ -44,10 +44,6 @@ def abs(x):
 # Q1: Road Segment Generation Algorithm
 #####################################
 # Note: Curves need to be generated with curves in order across a certain axis
-# Constraints:
-# ∀ 0 ≤ i ≤ n − 1, dmin ≤ xi+1 − xi ≤ dmax
-# ∀ 0 ≤ i ≤ n − 1, dmin ≤ yi+1 − yi ≤ dmax
-# ∀ 0 ≤ i ≤ n − 1, dmin ≤ zi+1 − zi ≤ dmax
 
 class NoSol(Exception):
 	def __init__(self, value='No solution found for given criteria.'):
@@ -275,18 +271,21 @@ def main():
 
     # Write Unity-consumable road information into a file
     file = open("coordinates.txt", "w")
+    Xvals = []
+    Yvals = []
     for seg in range(solN):
         print('Seg ' + str(seg + 1) + ':')
         file.write("Seg " + str(seg + 1) + ":\n")
         curNumArray = solArrayX
         for point in range(len(curNumArray[seg])):
             print(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))))
-            plt.plot(solArrayY[seg][point], solArrayZ[seg][point], '-')
-            plt.draw()
-            plt.pause(0.1)
+            Xvals.append(solArrayY[seg][point].as_long() * 30)
+            Yvals.append(solArrayZ[seg][point].as_long() * 30)
             file.write(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))) + "\n")
     file.close()
-
+    plt.plot(Xvals, Yvals, '-o')
+    plt.show()
+    plt.pause(0.1)
     
 
     # DO NOT CHANGE THIS PART OF THE CODE
