@@ -3,7 +3,7 @@
 # Ref: The SMT_Based Automatic Road Network Generation in Vehicle Simulation Environment (BaekGyu Kim et al. 2016)
 
 from z3 import *
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 
 # Curve Coverage Criteria [n_min, n_max, theta_min, theta_max, d_min, d_max]
 # n_min: min number of curves
@@ -62,40 +62,41 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
         cnt = 0
         S = None
         tmax = 1
-        s.check()
-        set_option(timeout=tmax)
-        #print('X: '+str(X))
+        #s.check()
+        #set_option(timeout=tmax)
         print("\nROAD SEG GEN")
-        # s.add(n_min >= 0)
-        # s.add(n_max >= 0, n_max >= n_min)
-        # s.add([d_min >= 0, d_max >= 0, d_max >= d_min, theta_min >= 0, theta_max >= 0, theta_max >= theta_min])
-        
+
         for index in range(0, len(X)):
             s.add(X[index] >= x_min, X[index] <= x_max)
             s.add(Y[index] >= y_min, Y[index] <= y_max)
             s.add(Z[index] >= z_min, Z[index] <= z_max)
+            '''            s.add(X[index] >= X[0]+x_min, X[index] <= X[0]+x_max)
+            s.add(Y[index] >= Y[0]+y_min, Y[index] <= Y[0]+y_max)
+            s.add(Z[index] >= Z[0]+z_min, Z[index] <= Z[0]+z_max)'''
             #curve distance constraint
-            if(index < len(X)-1):
+            if(index < len(X)-2):
                 s.add((X[index+1]-X[index]) <= d_max)
                 s.add((X[index+1]-X[index]) >= d_min)
                 s.add((Y[index+1]-Y[index]) <= d_max)
                 s.add((Y[index+1]-Y[index]) >= d_min)
                 s.add((Z[index+1]-Z[index]) <= d_max)
                 s.add((Z[index+1]-Z[index]) >= d_min)
-            
-            if(index < len(X)-3):
-                #alternating road constraint
-                fml1 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) * ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
-                s.add(fml1 <= 0)
-                #curvature constraint
-                fml2 = ((Z[index+1]-Z[index])/(X[index+1]-X[index])) - ((Z[index+2]-Z[index+1])/(X[index+2]-X[index+1]))
-                fml3 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) - ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
-                s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
-                s.add(theta_min <= abs(fml3), theta_max >= abs(fml3))
+            if(index <= len(X)-3):
+                try:
+                    #alternating road constraint
+                    fml1 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) * ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
+                    s.add(fml1 <= 0)
+                    #curvature constraint
+                    fml2 = ((Z[index+1]-Z[index])/(X[index+1]-X[index])) - ((Z[index+2]-Z[index+1])/(X[index+2]-X[index+1]))
+                    fml3 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) - ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
+                    s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
+                    s.add(theta_min <= abs(fml3), theta_max >= abs(fml3))
+                except Exception as e:
+                    print(e)
         try:
             while(cnt < N):
                 print("ASSUMPTIONS:\n"+str(s))
-                print(cnt)
+                print("COUNT:"+str(cnt))
                 # try to solve with the coverage criteria
                 result = s.check()
                 print(result)
@@ -109,7 +110,7 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
                     S = r_i
                     #s.add(Not(r_i))
                     return r_i
-                elif(str(s.check()) == str(unknown)):
+                elif(result == unknown):
                     raise NoSol()
                 #elif(s.check() == timeout):
                 #	raise GlobalTimeOut()
@@ -200,7 +201,7 @@ def main():
             C_i = C_l[sol_ind]
             s = Solver()
             s.reset()
-            s.check()
+            #s.check()
 
             #find n
             n_min = int(C_i[0])
@@ -212,6 +213,7 @@ def main():
             s.check()
             mdl = s.model()
             n = mdl[n].as_long()
+            n = n_min
             s.reset()
             s.check()
             X += [Int('x_%d' %index) for index in range(0, n)]
@@ -232,9 +234,9 @@ def main():
                 print('last_x/y/z: '+str(last_x)+", "+str(last_y)+", "+str(last_z))
                 #global theta constraints
                 fml1 = (Y[0]-second_to_last_y) / (X[0]-second_to_last_x) - (Y[1]-last_y) / (X[1]-last_x)
-                #s.add(C_g[2] <= abs(fml1), C_g[3] >= abs(fml1))
+                s.add(C_g[2] <= abs(fml1), C_g[3] >= abs(fml1))
                 fml2 = (Z[0]-second_to_last_z) / (X[0]-second_to_last_x) - (Z[1]-last_z) / (X[1]-last_x)
-                #s.add(C_g[2] <= abs(fml2), C_g[3] >= abs(fml2))
+                s.add(C_g[2] <= abs(fml2), C_g[3] >= abs(fml2))
             print("FORMULA:\n"+str(s))
             outcome = road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max, theta_min, theta_max, N, s)
             print()
@@ -252,14 +254,11 @@ def main():
             tempZ = []
             for index in range(n):
                 id = Int('x_%d' %index)
-                tempX.append(outcome[id])
-                #solArrayX.append(outcome[id])
+                tempX.append(outcome[id].as_long())
                 id = Int('y_%d' %index)
-                tempY.append(outcome[id])
-                #solArrayY.append(outcome[id])
+                tempY.append(outcome[id].as_long())
                 id = Int('z_%d' %index)
-                tempZ.append(outcome[id])
-                #solArrayZ.append(outcome[id])
+                tempZ.append(outcome[id].as_long())
             solArrayX.append(tempX)
             solArrayY.append(tempY)
             solArrayZ.append(tempZ)
@@ -279,13 +278,15 @@ def main():
         curNumArray = solArrayX
         for point in range(len(curNumArray[seg])):
             print(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))))
-            Xvals.append(solArrayY[seg][point].as_long() * 30)
-            Yvals.append(solArrayZ[seg][point].as_long() * 30)
+            Xvals.append(solArrayY[seg][point])
+            Yvals.append(solArrayZ[seg][point])
             file.write(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))) + "\n")
     file.close()
-    plt.plot(Xvals, Yvals, '-o')
-    plt.show()
-    plt.pause(0.1)
+    print(Xvals)
+    print(Yvals)
+    #plt.plot(Xvals, Yvals, '-o')
+    #plt.show()
+    #plt.pause(0.1)
     
 
     # DO NOT CHANGE THIS PART OF THE CODE
