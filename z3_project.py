@@ -3,6 +3,7 @@
 # Ref: The SMT_Based Automatic Road Network Generation in Vehicle Simulation Environment (BaekGyu Kim et al. 2016)
 
 from z3 import *
+from matplotlib import pyplot as plt
 
 # Curve Coverage Criteria [n_min, n_max, theta_min, theta_max, d_min, d_max]
 # n_min: min number of curves
@@ -89,11 +90,12 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
             if(index < len(X)-3):
                 #alternating road constraint
                 fml1 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) * ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
-                #s.add(fml1 <= 0)
+                s.add(fml1 <= 0)
                 #curvature constraint
-                fml2 = ((Z[index+1]-Z[index])/(X[index+1]-X[index])) * ((Z[index+2]-Z[index+1])/(X[index+2]-X[index+1]))
-                s.add(theta_min <= abs(fml1), theta_max >= abs(fml1))
+                fml2 = ((Z[index+1]-Z[index])/(X[index+1]-X[index])) - ((Z[index+2]-Z[index+1])/(X[index+2]-X[index+1]))
+                fml3 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) - ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
                 s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
+                s.add(theta_min <= abs(fml3), theta_max >= abs(fml3))
         try:
             while(cnt < N):
                 print("ASSUMPTIONS:\n"+str(s))
@@ -249,27 +251,43 @@ def main():
             second_to_last_x = outcome[Int('x_%d' %(n-2))].as_long()
             second_to_last_y = outcome[Int('y_%d' %(n-2))].as_long()
             second_to_last_z = outcome[Int('z_%d' %(n-2))].as_long()
+            tempX = []
+            tempY = []
+            tempZ = []
             for index in range(n):
-                    id = Int('x_%d' %index)
-                    solArrayX.append(outcome[id])
-                    id = Int('y_%d' %index)
-                    solArrayY.append(outcome[id])
-                    id = Int('z_%d' %index)
-                    solArrayZ.append(outcome[id])
+                id = Int('x_%d' %index)
+                tempX.append(outcome[id])
+                #solArrayX.append(outcome[id])
+                id = Int('y_%d' %index)
+                tempY.append(outcome[id])
+                #solArrayY.append(outcome[id])
+                id = Int('z_%d' %index)
+                tempZ.append(outcome[id])
+                #solArrayZ.append(outcome[id])
+            solArrayX.append(tempX)
+            solArrayY.append(tempY)
+            solArrayZ.append(tempZ)
             print(solArrayX)
             print(solArrayY)
             print(solArrayZ)
+            #curNumArray.append()
         #exit()
 
-    # Write the generated road information into a file
+    # Write Unity-consumable road information into a file
     file = open("coordinates.txt", "w")
     for seg in range(solN):
-        file.write('Seg ' + str(seg + 1) + ':\n')
-        for point in range(curNumArray[seg]):
-            file.write(
-                str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))) + "\n")
+        print('Seg ' + str(seg + 1) + ':')
+        file.write("Seg " + str(seg + 1) + ":\n")
+        curNumArray = solArrayX
+        for point in range(len(curNumArray[seg])):
+            print(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))))
+            plt.plot(solArrayY[seg][point], solArrayZ[seg][point], '-')
+            plt.draw()
+            plt.pause(0.1)
+            file.write(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))) + "\n")
     file.close()
 
+    
 
     # DO NOT CHANGE THIS PART OF THE CODE
     # Additional part for generating the correct output format for visualising the generated road in Unity
