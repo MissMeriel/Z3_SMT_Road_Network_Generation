@@ -3,7 +3,8 @@
 # Ref: The SMT_Based Automatic Road Network Generation in Vehicle Simulation Environment (BaekGyu Kim et al. 2016)
 
 from z3 import *
-#from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
+import time
 
 # Curve Coverage Criteria [n_min, n_max, theta_min, theta_max, d_min, d_max]
 # n_min: min number of curves
@@ -62,19 +63,15 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
         cnt = 0
         S = None
         tmax = 1
-        #s.check()
         #set_option(timeout=tmax)
         print("\nROAD SEG GEN")
 
-        for index in range(0, len(X)):
+        for index in range(len(X)):
             s.add(X[index] >= x_min, X[index] <= x_max)
             s.add(Y[index] >= y_min, Y[index] <= y_max)
             s.add(Z[index] >= z_min, Z[index] <= z_max)
-            '''            s.add(X[index] >= X[0]+x_min, X[index] <= X[0]+x_max)
-            s.add(Y[index] >= Y[0]+y_min, Y[index] <= Y[0]+y_max)
-            s.add(Z[index] >= Z[0]+z_min, Z[index] <= Z[0]+z_max)'''
             #curve distance constraint
-            if(index < len(X)-2):
+            if(index < len(X)-1):
                 s.add((X[index+1]-X[index]) <= d_max)
                 s.add((X[index+1]-X[index]) >= d_min)
                 s.add((Y[index+1]-Y[index]) <= d_max)
@@ -84,12 +81,12 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
             if(index <= len(X)-3):
                 try:
                     #alternating road constraint
-                    fml1 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) * ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
+                    fml1 = (Y[index+1]-Y[index])/(X[index+1]-X[index]) * (Y[index+2]-Y[index+1])/(X[index+2]-X[index+1])
                     s.add(fml1 <= 0)
                     #curvature constraint
-                    fml2 = ((Z[index+1]-Z[index])/(X[index+1]-X[index])) - ((Z[index+2]-Z[index+1])/(X[index+2]-X[index+1]))
-                    fml3 = ((Y[index+1]-Y[index])/(X[index+1]-X[index])) - ((Y[index+2]-Y[index+1])/(X[index+2]-X[index+1]))
-                    s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
+                    fml2 = (Z[index+1]-Z[index])/(X[index+1]-X[index]) - (Z[index+2]-Z[index+1])/(X[index+2]-X[index+1])
+                    fml3 = (Y[index+1]-Y[index])/(X[index+1]-X[index]) - (Y[index+2]-Y[index+1])/(X[index+2]-X[index+1])
+                    #s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
                     s.add(theta_min <= abs(fml3), theta_max >= abs(fml3))
                 except Exception as e:
                     print(e)
@@ -100,13 +97,11 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
                 # try to solve with the coverage criteria
                 result = s.check()
                 print(result)
-                r_i = s.model()
-                print("MODEL:\n"+str(r_i))
                 #print("s.check() == sat: "+str(s.check() == sat))
                 if(result == sat):
                     print('s.check was sat')
-                    #print(s.model())
                     r_i = s.model()
+                    print("MODEL:\n"+str(r_i))
                     S = r_i
                     #s.add(Not(r_i))
                     return r_i
@@ -176,6 +171,8 @@ curNumArray = []
 def main():
     # global s
     # Coverage consistency check
+    times = []
+    times.append(time.time())
     cov_con = coverage_consistence(C_l, C_g, solN)
     if(cov_con == False):
         print('No-Sol\n')
@@ -201,7 +198,6 @@ def main():
             C_i = C_l[sol_ind]
             s = Solver()
             s.reset()
-            #s.check()
 
             #find n
             n_min = int(C_i[0])
@@ -209,40 +205,37 @@ def main():
             n = Int('n')
             s.add(n >= n_min)
             s.add(n <= n_max)
-            #print(s.assertions())
+
             s.check()
             mdl = s.model()
             n = mdl[n].as_long()
             n = n_min
             s.reset()
             s.check()
-            X += [Int('x_%d' %index) for index in range(0, n)]
-            Y += [Int('y_%d' %index) for index in range(0, n)]
-            Z += [Int('z_%d' %index) for index in range(0, n)]
+            X += [Int('x_%d' %index) for index in range(n)]
+            Y += [Int('y_%d' %index) for index in range(n)]
+            Z += [Int('z_%d' %index) for index in range(n)]
 
             theta_min = C_i[2]
             theta_max = C_i[3]
             d_min = C_i[4]
             d_max = C_i[5]
-            print(X)
-            #exit()
 
             #constrain endpoint of last segment to match start of this segment
-            print('last_x >= 0: '+str(last_x >= 0))
             if(last_x > -1):
                 s.add(X[0] == last_x, Y[0] == last_y, Z[0] == last_z)
                 print('last_x/y/z: '+str(last_x)+", "+str(last_y)+", "+str(last_z))
                 #global theta constraints
-                fml1 = (Y[0]-second_to_last_y) / (X[0]-second_to_last_x) - (Y[1]-last_y) / (X[1]-last_x)
+                fml1 = (Y[0]-second_to_last_y)/(X[0]-second_to_last_x) - (Y[1]-last_y)/(X[1]-last_x)
                 s.add(C_g[2] <= abs(fml1), C_g[3] >= abs(fml1))
-                fml2 = (Z[0]-second_to_last_z) / (X[0]-second_to_last_x) - (Z[1]-last_z) / (X[1]-last_x)
+                fml2 = (Z[0]-second_to_last_z)/(X[0]-second_to_last_x) - (Z[1]-last_z)/(X[1]-last_x)
                 s.add(C_g[2] <= abs(fml2), C_g[3] >= abs(fml2))
             print("FORMULA:\n"+str(s))
             outcome = road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max, theta_min, theta_max, N, s)
-            print()
+            print
             print(outcome)
-            #print(Int('x_%d' %(n-1)))
-            # update theta continuity constraints
+
+            # update theta continuity constraint values
             last_x = outcome[Int('x_%d' %(n-1))].as_long()
             last_y = outcome[Int('y_%d' %(n-1))].as_long()
             last_z = outcome[Int('z_%d' %(n-1))].as_long()
@@ -254,18 +247,18 @@ def main():
             tempZ = []
             for index in range(n):
                 id = Int('x_%d' %index)
-                tempX.append(outcome[id].as_long())
+                tempX.append(outcome[Int('x_%d' %index)].as_long())
                 id = Int('y_%d' %index)
-                tempY.append(outcome[id].as_long())
+                tempY.append(outcome[Int('y_%d' %index)].as_long())
                 id = Int('z_%d' %index)
-                tempZ.append(outcome[id].as_long())
+                tempZ.append(outcome[Int('z_%d' %index)].as_long())
             solArrayX.append(tempX)
             solArrayY.append(tempY)
             solArrayZ.append(tempZ)
             print(solArrayX)
             print(solArrayY)
             print(solArrayZ)
-            #curNumArray.append()
+            times.append(time.time())
         #exit()
 
     # Write Unity-consumable road information into a file
@@ -284,9 +277,20 @@ def main():
     file.close()
     print(Xvals)
     print(Yvals)
-    #plt.plot(Xvals, Yvals, '-o')
-    #plt.show()
-    #plt.pause(0.1)
+    slopes = []
+    for index in range(len(Xvals)-1):
+        print(index)
+        if(Xvals[index+1] == Xvals[index]):
+            slopes.append(0)
+        else:
+            slopes.append(float(Yvals[index+1]-Yvals[index])/float(Xvals[index+1]-Xvals[index]))
+    print(slopes)
+    for index in range(1, len(times)):
+        runtime = times[index] - times[0]
+        print("Time to execute segment "+str(index)+": "+str(runtime))
+    plt.plot(Xvals, Yvals, '-o')
+    plt.show()
+    plt.pause(0.1)
     
 
     # DO NOT CHANGE THIS PART OF THE CODE
