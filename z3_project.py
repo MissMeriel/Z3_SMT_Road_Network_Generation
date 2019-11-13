@@ -86,7 +86,8 @@ def road_seg_gen(X, Y, Z, x_min, y_min, z_min, x_max, y_max, z_max, d_min, d_max
                     #curvature constraint
                     fml2 = (Z[index+1]-Z[index])/(X[index+1]-X[index]) - (Z[index+2]-Z[index+1])/(X[index+2]-X[index+1])
                     fml3 = (Y[index+1]-Y[index])/(X[index+1]-X[index]) - (Y[index+2]-Y[index+1])/(X[index+2]-X[index+1])
-                    #s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
+                    # These two constraints appear to be the bottleneck.
+                    s.add(theta_min <= abs(fml2), theta_max >= abs(fml2))
                     s.add(theta_min <= abs(fml3), theta_max >= abs(fml3))
                 except Exception as e:
                     print(e)
@@ -270,10 +271,10 @@ def main():
         file.write("Seg " + str(seg + 1) + ":\n")
         curNumArray = solArrayX
         for point in range(len(curNumArray[seg])):
-            print(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))))
+            print(str(5 * int(str(solArrayY[seg][point]))) + ", 0, " + str(5 * int(str(solArrayZ[seg][point]))))
             Xvals.append(solArrayY[seg][point])
             Yvals.append(solArrayZ[seg][point])
-            file.write(str(30 * int(str(solArrayY[seg][point]))) + ", 0, " + str(30 * int(str(solArrayZ[seg][point]))) + "\n")
+            file.write(str(5 * int(str(solArrayY[seg][point]))) + ", 0, " + str(5 * int(str(solArrayZ[seg][point]))) + "\n")
     file.close()
     print(Xvals)
     print(Yvals)
